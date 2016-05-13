@@ -1,19 +1,23 @@
+#!/usr/bin/env python
+from __future__ import print_function, unicode_literals, absolute_import
+
+
 import toga
 
-def do_sync(widget):
-    print('Sync', widget)
+class Swim(toga.App):
 
-def build(app):
-    container = toga.Container()
-    button = toga.Button('Syncronise', on_press=do_sync)
-    container.add(button)
-    #container.constrain(button.TOP == container.TOP + 50)
-    #container.constrain(button.LEADING == container.LEADING + 50)
-    container.constrain(button.TRAILING + 50 == container.TRAILING)
-    container.constrain(button.BOTTOM + 50 < container.BOTTOM)
-    return container
+    def startup(self):
+        container = toga.Container()
+        self.webview = toga.WebView()
+        container.add(self.webview)
+        container.constrain(self.webview.TOP == container.TOP)
+        container.constrain(self.webview.BOTTOM == container.BOTTOM)
+        container.constrain(self.webview.RIGHT == container.RIGHT)
+        container.constrain(self.webview.LEFT == container.LEFT)
+        self.main_window.content = container
+        self.webview.url = 'http://google.com.au'
 
 
 if __name__=='__main__':
-    app = toga.App('Simple file sync', 'org.anglicarets.filesync', startup=build)
+    app = Swim('SyncSwim', 'org.anglicaretas.syncswim')
     app.main_loop()
