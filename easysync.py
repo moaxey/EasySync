@@ -1,30 +1,98 @@
 #!/usr/bin/env python
-from tkinter import font, ttk
+from tkinter import font, ttk, filedialog
 import tkinter as tk
+from appdirs import AppDirs
+import configparser
+import os
 
+class AppConfig():
 
+    def __init__(self):
+        self.dirs = None
+        self.app_title = ''
+        self.config = None
 
-class Application(tk.Frame):
+    def config_setup(self, app_title):
+        self.dirs = AppDirs(app_title, "Author")
+        if not os.path.exists(self.dirs.user_config_dir):
+            os.makedirs(self.dirs.user_config_dir)
+        self.app_title = app_title
+        self.read_config()
+        self.configure_gui()
+
+    def get_config_path(self):
+        return os.path.join(
+            self.dirs.user_config_dir,
+            '{}.conf'.format(self.app_title)
+        )
+
+    def get_default_config(self):
+        return {'section': {'key': 'value'}}
+
+    def read_config(self):
+        self.config = configparser.ConfigParser()
+        self.config.read(
+            self.get_config_path()
+        )
+        dc = self.get_default_config()
+        anychange = False
+        for section, default_values  in dc.items():
+            if section not in self.config.sections():
+                self.config[section] = default_values
+                anychange = True
+        if anychange:
+            self.write_config()
+
+    def write_config(self):
+        with open(
+                self.get_config_path(), 'w'
+        ) as cf:
+            self.config.write(cf)
+
+    def purge_config(self):
+        os.unlink(self.get_config_path())
+
+    def configure_gui(self):
+        pass
+
+class Application(tk.Frame, AppConfig):
 
     def __init__(self, master=None):
+        super().__init__()
         tk.Frame.__init__(self, master)
         self.menuBar = tk.Menu(self)
         self.subMenu = tk.Menu(self.menuBar)
-        self.menuBar.add_cascade(label='Help', menu=self.subMenu)
-        self.subMenu.add_command(label='About', command=lambda *args: print(args))
+        self.menuBar.add_cascade(
+            label='Help', menu=self.subMenu
+        )
+        self.subMenu.add_command(
+            label='About', command=lambda *args: print(args)
+        )
         self.grid(padx=12, pady=12)
-        self.wfs = tk.StringVar()
-        self.sfs = tk.StringVar()
+        self.wfs_dir = tk.StringVar()
+        self.sfs_dir = tk.StringVar()
         self.active = tk.IntVar()
         self.progress = tk.IntVar()
         self.action = tk.StringVar()
-        self.wfs.set('Not selected')
-        self.sfs.set('Not selected')
         self.action.set('No activity')
-        self.active.set(0)
-        self.createWidgets()
+        self.create_widgets()
 
-    def createWidgets(self):
+    def get_default_config(self):
+        return {
+            'state': {
+                'wfs_dir': '',
+                'sfs_dir': '',
+                'active': False,
+            }
+        }
+
+    def configure_gui(self):
+        print('zzz', self.config)
+        self.wfs_dir.set(self.config['state']['wfs_dir'])
+        self.sfs_dir.set(self.config['state']['sfs_dir'])
+        self.active.set(self.config.getboolean('state', 'active'))
+
+    def create_widgets(self):
         headfont = font.Font(family="Avenir Next", size=48, weight='bold')
         messagefont = font.Font(family="Avenir Next", size=18)
         labelfont = font.Font(family="Avenir Next", size=18, weight='bold')
@@ -82,8 +150,8 @@ class Application(tk.Frame):
         rowcursor += 1
         wfsel =  tk.Label(
             self,
-            textvariable=self.wfs,
-            font=messagefont,
+            textvariable=self.wfs_dir,
+            font=helpfont,
             justify=tk.CENTER,
         ).grid(
             row=rowcursor,
@@ -112,8 +180,8 @@ class Application(tk.Frame):
         rowcursor += 1
         sfsel =  tk.Label(
             self,
-            textvariable=self.sfs,
-            font=messagefont,
+            textvariable=self.sfs_dir,
+            font=helpfont,
             justify=tk.CENTER,
         ).grid(
             row=rowcursor,
@@ -203,56 +271,48 @@ class Application(tk.Frame):
 
     def choose_working_folder(self):
         print('Choose working')
+        # read current setting for default or home
+        self.wfs_dir.set(
+            filedialog.askdirectory(
+            )
+        )
 
     def choose_sync_folder(self):
         print('Choose sync')
+        # read current setting for default or home
+        self.sfs_dir.set(filedialog.askdirectory())
 
     def toggle_activate(self):
         self.action.set('Waiting for changes')
+        ## turn on
+        # deactivate ui elements
+        # start macfsevents observer
+        # set hook to sync from working (self.do_sync)
+        ## turn off
+        # stop macfsevents observer
+        # wait for any dirsync to finish
+        # activate ui elements
         print('toggle activate')
 
     def cleanup(self):
         self.action.set('Cleaning up')
+        # sync and purge from working
+        self.do_sync(purge=True)
         print('cleanup')
-        
 
-"""
-        self.quitButton = tk.Button(self, text='Quit',
-            command=self.quit)
-        self.quitButton.grid()
-
-=============================
-
-Easysync
-
-
-Sync your local working files to a second location.
-
-Working files: [ Select ]
-filepath
-
-Backup location:  [ Select ]
-filepath
+    def do_sync(self, **options):
+        sync(
+            self.wfs_dir.get(),
+            self.sfs_dir.get(),
+            'sync',
+            logger=my_logger,
+            **options
+        )
 
 
-[ ] Watch and sync
-Running / not running
-
-[ View log ]
-
--------------------
-
-[ Mirror ]
-
-Syncs and deletes files from server that are not in your local working files
-
-==============================
-
-
-
-
-"""
-app = Application()
-app.master.title('EasySync')
-app.mainloop()
+if __name__=='__main__':
+    app = Application()
+    app.master.title('EasySync')
+    app.config_setup('EasySync')
+    app.mainloop()
 
