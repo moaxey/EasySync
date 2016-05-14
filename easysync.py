@@ -87,10 +87,9 @@ class Application(tk.Frame, AppConfig):
         }
 
     def configure_gui(self):
-        print('zzz', self.config)
         self.wfs_dir.set(self.config['state']['wfs_dir'])
         self.sfs_dir.set(self.config['state']['sfs_dir'])
-        self.active.set(self.config.getboolean('state', 'active'))
+        self.active.set(int(self.config.getboolean('state', 'active')))
 
     def create_widgets(self):
         headfont = font.Font(family="Avenir Next", size=48, weight='bold')
@@ -269,30 +268,46 @@ class Application(tk.Frame, AppConfig):
             sticky=tk.W,
         )
 
-    def choose_working_folder(self):
-        print('Choose working')
-        # read current setting for default or home
-        self.wfs_dir.set(
+    def choose_folder(self, configkey, variable):
+        cwd = self.config['state'][configkey]
+        if cwd == '':
+            cwd = os.path.expanduser('~')
+        variable.set(
             filedialog.askdirectory(
+                initialdir=cwd
             )
         )
+        self.config['state'][configkey] = variable.get()
+        self.write_config()
+
+    def choose_working_folder(self):
+        print('Choose working')
+        self.choose_folder('wfs_dir', self.wfs_dir)
 
     def choose_sync_folder(self):
         print('Choose sync')
         # read current setting for default or home
-        self.sfs_dir.set(filedialog.askdirectory())
+        self.choose_folder('sfs_dir', self.sfs_dir)
 
     def toggle_activate(self):
-        self.action.set('Waiting for changes')
-        ## turn on
-        # deactivate ui elements
-        # start macfsevents observer
-        # set hook to sync from working (self.do_sync)
-        ## turn off
-        # stop macfsevents observer
-        # wait for any dirsync to finish
-        # activate ui elements
         print('toggle activate')
+        become_active = self.active.get()
+        if become_active:
+            self.action.set('Waiting for changes')
+            ## turn on
+            # deactivate ui elements
+            # start macfsevents observer
+            # set hook to sync from working (self.do_sync)
+            pass
+        else:
+            self.action.set('Not active')
+            ## turn off
+            # stop macfsevents observer
+            # wait for any dirsync to finish
+            # activate ui elements
+            pass
+        self.config['state']['active'] = str(become_active)
+        self.write_config()
 
     def cleanup(self):
         self.action.set('Cleaning up')
