@@ -4,6 +4,8 @@ import tkinter as tk
 from appdirs import AppDirs
 import configparser
 import os
+from fsevents import Observer, Stream
+
 
 class AppConfig():
 
@@ -60,14 +62,19 @@ class Application(tk.Frame, AppConfig):
     def __init__(self, master=None):
         super().__init__()
         tk.Frame.__init__(self, master)
-        self.menuBar = tk.Menu(self)
+        top = self.winfo_toplevel()
+        top.protocol("WM_DELETE_WINDOW", self.stop_observer)
+        top.createcommand("tk::mac::Quit", self.stop_observer)
+        self.menuBar = tk.Menu(top)
+        top['menu'] = self.menuBar
+        """
         self.subMenu = tk.Menu(self.menuBar)
         self.menuBar.add_cascade(
             label='Help', menu=self.subMenu
         )
         self.subMenu.add_command(
             label='About', command=lambda *args: print(args)
-        )
+        )"""
         self.grid(padx=12, pady=12)
         self.wfs_dir = tk.StringVar()
         self.sfs_dir = tk.StringVar()
@@ -75,6 +82,8 @@ class Application(tk.Frame, AppConfig):
         self.progress = tk.IntVar()
         self.action = tk.StringVar()
         self.action.set('No activity')
+        self.observer = None
+        self.stream = None
         self.create_widgets()
 
     def get_default_config(self):
@@ -90,6 +99,7 @@ class Application(tk.Frame, AppConfig):
         self.wfs_dir.set(self.config['state']['wfs_dir'])
         self.sfs_dir.set(self.config['state']['sfs_dir'])
         self.active.set(int(self.config.getboolean('state', 'active')))
+        self.toggle_activate()
 
     def create_widgets(self):
         headfont = font.Font(family="Avenir Next", size=48, weight='bold')
@@ -135,13 +145,14 @@ class Application(tk.Frame, AppConfig):
             row=rowcursor,
             sticky=tk.E,
         )
-        wfbut = tk.Button(
+        self.wfbut = tk.Button(
             self,
             text="Choose",
             padx=8,
             pady=4,
             command=self.choose_working_folder,
-        ).grid(
+        )
+        self.wfbut.grid(
             row=rowcursor,
             column=1,
             sticky=tk.W,
@@ -165,13 +176,14 @@ class Application(tk.Frame, AppConfig):
             row=rowcursor,
             sticky=tk.E,
         )
-        sfbut = tk.Button(
+        self.sfbut = tk.Button(
             self,
             text="Choose",
             padx=8,
             pady=4,
             command=self.choose_sync_folder,
-        ).grid(
+        )
+        self.sfbut.grid(
             row=rowcursor,
             column=1,
             sticky=tk.W,
@@ -205,7 +217,7 @@ class Application(tk.Frame, AppConfig):
             column=1,
             sticky=tk.W,
         )
-        rowcursor += 1
+        """rowcursor += 1
         actpb = ttk.Progressbar(
             self,
             orient=tk.HORIZONTAL,
@@ -216,7 +228,7 @@ class Application(tk.Frame, AppConfig):
             row=rowcursor,
             column=1,
             sticky=tk.W,
-        )
+        )"""
         rowcursor += 1
         sflab =  tk.Label(
             self,
@@ -246,13 +258,14 @@ class Application(tk.Frame, AppConfig):
             row=rowcursor,
             sticky=tk.E,
         )
-        sfbut = tk.Button(
+        self.purgebut = tk.Button(
             self,
             text="Delete files",
             padx=8,
             pady=4,
             command=self.cleanup
-        ).grid(
+        )
+        self.purgebut.grid(
             row=rowcursor,
             column=1,
             sticky=tk.W,
@@ -290,22 +303,40 @@ class Application(tk.Frame, AppConfig):
         self.choose_folder('sfs_dir', self.sfs_dir)
 
     def toggle_activate(self):
-        print('toggle activate')
         become_active = self.active.get()
+        print('toggle activate', become_active)
         if become_active:
-            self.action.set('Waiting for changes')
-            ## turn on
-            # deactivate ui elements
-            # start macfsevents observer
-            # set hook to sync from working (self.do_sync)
-            pass
+            # if wfs and sfs are folders and not same
+            wfs = self.wfs_dir.get()
+            sfs = self.sfs_dir.get()
+            if wfs != sfs and os.path.isdir(wfs) and os.path.isdir(sfs):
+                self.action.set('Waiting for changes')
+                ## turn on
+                # deactivate ui elements
+                self.wfbut['state'] = tk.DISABLED
+                self.sfbut['state'] = tk.DISABLED
+                self.purgebut['state'] = tk.DISABLED
+                # do sync
+                self.do_sync()
+                # start macfsevents observer
+                self.stream = Stream(self.do_sync, wfs)
+                self.observer = Observer()
+                self.observer.schedule(self.stream)
+                self.observer.start()
+                # set hook to sync from working (self.do_sync)
         else:
             self.action.set('Not active')
             ## turn off
             # stop macfsevents observer
+            if self.observer:
+                self.observer.unschedule(self.stream)
+                self.observer.stop()
+                self.observer = None
             # wait for any dirsync to finish
             # activate ui elements
-            pass
+            self.wfbut['state'] = tk.NORMAL
+            self.sfbut['state'] = tk.NORMAL
+            self.purgebut['state'] = tk.NORMAL
         self.config['state']['active'] = str(become_active)
         self.write_config()
 
@@ -315,14 +346,22 @@ class Application(tk.Frame, AppConfig):
         self.do_sync(purge=True)
         print('cleanup')
 
-    def do_sync(self, **options):
-        sync(
+    def stop_observer(self):
+        print('aaa')
+        if self.observer:
+            self.observer.unschedule(self.stream)
+            self.observer.stop()
+        self.quit()
+
+    def do_sync(self, *args, **options):
+        print('do sync', args, options)
+        """sync(
             self.wfs_dir.get(),
             self.sfs_dir.get(),
             'sync',
             logger=my_logger,
             **options
-        )
+        )"""
 
 
 if __name__=='__main__':
