@@ -10,6 +10,11 @@ import logging
 from fsevents import Observer, Stream
 from dirsync import sync
 
+DEBUG=True
+def debug(*args):
+    if DEBUG:
+        print(args)
+
 
 class AppConfig():
 
@@ -80,6 +85,8 @@ class Application(tk.Frame, AppConfig):
         self.progress = tk.IntVar()
         self.action = tk.StringVar()
         self.action.set('No activity')
+        self.action_id = None
+        self.activate_id = None
         self.observer = None
         self.stream = None
         self.create_widgets()
@@ -281,59 +288,71 @@ class Application(tk.Frame, AppConfig):
         self.write_config()
 
     def choose_working_folder(self):
-        print('Choose working')
+        debug('Choose working')
         self.choose_folder('wfs_dir', self.wfs_dir)
 
     def choose_sync_folder(self):
-        print('Choose sync')
-        # read current setting for default or home
+        debug('Choose sync')
         self.choose_folder('sfs_dir', self.sfs_dir)
+
+    def dirs_okay(self):
+        # combined with reactivate, this allows sync to pause and continue if
+        # either directory is absent (e.g. unmounted)
+        wfs = self.wfs_dir.get()
+        sfs = self.sfs_dir.get()
+        wfsx = os.path.isdir(wfs)
+        sfsx = os.path.isdir(sfs)
+        if wfs == sfs or not wfsx or not sfsx:
+            self.active.set(0)
+            if wfs == sfs:
+                self.action.set(
+                    'Working files and sync files are the same folder'
+                )
+            elif not wfsx or not sfsx:
+                if not wfsx:
+                    self.action.set('Working files folder does not exist')
+                elif not sfsx:
+                    self.action.set('Sync files folder does not exist')
+            self.update_idletasks()
+            return False
+        else:
+             return True
+
+    def reactivate(self):
+        self.activate_id = None
+        self.active.set(1)
+        self.toggle_activate()
 
     def toggle_activate(self):
         become_active = self.active.get()
-        print('toggle activate', become_active)
+        debug('toggle activate', become_active)
         if become_active:
             self.action.set('Looking for directories')
+            self.update_idletasks()
             wfs = self.wfs_dir.get()
-            sfs = self.sfs_dir.get()
-            wfsx = os.path.isdir(wfs)
-            sfsx = os.path.isdir(sfs)
-            if wfs == sfs or not wfsx or not sfsx:
-                self.active.set(0)
-                if wfs == sfs:
-                    self.action.set(
-                        'Working files and sync files are the same folder'
-                    )
-                    return
-                elif not wfsx:
-                    self.action.set('Working files folder does not exist')
-                    return
-                elif not sfsx:
-                    self.action.set('Sync files folder does not exist')
-                    return
-            if wfs != sfs and os.path.isdir(wfs) and os.path.isdir(sfs):
-                self.action.set('Watching for changes')
-                ## turn on
-                # deactivate ui elements
-                self.wfbut['state'] = tk.DISABLED
-                self.sfbut['state'] = tk.DISABLED
-                self.purgebut['state'] = tk.DISABLED
-                # do sync
-                self.do_sync()
-                # start macfsevents observer
-                self.stream = Stream(self.do_sync, wfs)
-                self.observer = Observer()
-                self.observer.schedule(self.stream)
-                self.observer.start()
+            if not self.dirs_okay():
+                if self.activate_id is None:
+                    self.activate_id = self.after(2000, self.reactivate)
+                return
+            self.action.set('Watching for changes')
+            self.update_idletasks()
+            ## turn on
+            self.wfbut['state'] = tk.DISABLED
+            self.sfbut['state'] = tk.DISABLED
+            self.purgebut['state'] = tk.DISABLED
+            self.do_sync()
+            self.stream = Stream(self.do_sync, wfs)
+            self.observer = Observer()
+            self.observer.schedule(self.stream)
+            self.observer.start()
         else:
             self.action.set('Not active')
+            self.update_idletasks()
             ## turn off
-            # stop macfsevents observer
             if self.observer:
                 self.observer.unschedule(self.stream)
                 self.observer.stop()
                 self.observer = None
-            # activate ui elements
             self.wfbut['state'] = tk.NORMAL
             self.sfbut['state'] = tk.NORMAL
             self.purgebut['state'] = tk.NORMAL
@@ -341,24 +360,44 @@ class Application(tk.Frame, AppConfig):
         self.write_config()
 
     def cleanup(self):
-        print('cleanup')
+        debug('cleanup')
         oldaction = self.action.get()
-        self.action.set('Cleaning up')
+        now = time.time()
+        thisaction = 'Cleaning up'
+        self.action.set(thisaction)
+        self.update_idletasks()
         # sync and purge files not in working
         self.do_sync(purge=True, verbose=True)
-        time.sleep(1)
-        self.action.set(oldaction)
+        dur = time.time() - now
+        self.display_action(
+            thisaction,
+            oldaction,
+            int(5000 - dur * 1000)
+        )
 
     def stop_observer(self):
+        debug('stop observer')
         if self.observer:
             self.observer.unschedule(self.stream)
             self.observer.stop()
+            self.observer = None
+        debug('stop actions')
+        if self.action_id is not None:
+            self.after_cancel(self.action_id)
+        if self.activate_id is not None:
+            self.after_cancel(self.activate_id)
+        debug('quitting')
         self.quit()
 
     def do_sync(self, *args, **options):
-        print('do sync', args, options)
+        debug('do sync', args, options)
+        if not self.dirs_okay():
+            if self.activate_id is None:
+                self.activate_id = self.after(2000, self.reactivate)
+            return
         oldaction = self.action.get()
-        self.action.set('Syncing')
+        self.action.set('Syncing       ')
+        self.update_idletasks()
         logfile = os.path.join(
             self.dirs.user_log_dir,
             '{}.log'.format(self.__class__.__name__)
@@ -371,12 +410,19 @@ class Application(tk.Frame, AppConfig):
             logger=logging,
             **options
         )
-        for f in files:
-            fp, fn = os.path.split(f)
-            self.action.set('Copied {}'.format(fn))
-            time.sleep(1)
-        time.sleep(1)
-        self.action.set(oldaction)
+        self.display_action(
+            'Copied {} files   '.format(len(files)),
+            oldaction,
+        )
+
+
+    def display_action(self, action, oldaction, duration=3000):
+        self.action.set(action)
+        self.update_idletasks()
+        id = self.after(duration, self.action.set, oldaction)
+        if self.action_id is not None:
+            self.after_cancel(self.action_id)
+        self.action_id = id
 
 
 if __name__=='__main__':
