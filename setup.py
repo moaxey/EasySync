@@ -9,7 +9,8 @@ from setuptools import setup
 
 APP = ['easysync.py']
 DATA_FILES = []
-OPTIONS = {'argv_emulation': True}
+OPTIONS = {}
+#'argv_emulation': True}
 
 setup(
     app=APP,

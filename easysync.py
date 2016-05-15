@@ -292,7 +292,7 @@ class Application(tk.Frame, AppConfig):
         become_active = self.active.get()
         print('toggle activate', become_active)
         if become_active:
-            # if wfs and sfs are folders and not same
+            self.action.set('Looking for directories')
             wfs = self.wfs_dir.get()
             sfs = self.sfs_dir.get()
             wfsx = os.path.isdir(wfs)
@@ -345,6 +345,7 @@ class Application(tk.Frame, AppConfig):
         self.action.set('Cleaning up')
         # sync and purge files not in working
         self.do_sync(purge=True, verbose=True)
+        time.sleep(1)
         self.action.set(oldaction)
 
     def stop_observer(self):
@@ -373,6 +374,7 @@ class Application(tk.Frame, AppConfig):
             fp, fn = os.path.split(f)
             self.action.set('Copied {}'.format(fn))
             time.sleep(1)
+        time.sleep(1)
         self.action.set(oldaction)
 
 
