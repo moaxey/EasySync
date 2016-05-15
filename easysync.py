@@ -1,10 +1,14 @@
 #!/usr/bin/env python
+
 from tkinter import font, ttk, filedialog
 import tkinter as tk
 from appdirs import AppDirs
 import configparser
 import os
+import time
+import logging
 from fsevents import Observer, Stream
+from dirsync import sync
 
 
 class AppConfig():
@@ -18,6 +22,8 @@ class AppConfig():
         self.dirs = AppDirs(app_title, "Author")
         if not os.path.exists(self.dirs.user_config_dir):
             os.makedirs(self.dirs.user_config_dir)
+        if not os.path.exists(self.dirs.user_log_dir):
+            os.makedirs(self.dirs.user_log_dir)
         self.app_title = app_title
         self.read_config()
         self.configure_gui()
@@ -67,14 +73,6 @@ class Application(tk.Frame, AppConfig):
         top.createcommand("tk::mac::Quit", self.stop_observer)
         self.menuBar = tk.Menu(top)
         top['menu'] = self.menuBar
-        """
-        self.subMenu = tk.Menu(self.menuBar)
-        self.menuBar.add_cascade(
-            label='Help', menu=self.subMenu
-        )
-        self.subMenu.add_command(
-            label='About', command=lambda *args: print(args)
-        )"""
         self.grid(padx=12, pady=12)
         self.wfs_dir = tk.StringVar()
         self.sfs_dir = tk.StringVar()
@@ -209,7 +207,7 @@ class Application(tk.Frame, AppConfig):
         )
         active = tk.Checkbutton(
             self,
-            text='Watch and sync',
+            text='Watch working and sync',
             variable=self.active,
             command=self.toggle_activate,
         ).grid(
@@ -217,18 +215,6 @@ class Application(tk.Frame, AppConfig):
             column=1,
             sticky=tk.W,
         )
-        """rowcursor += 1
-        actpb = ttk.Progressbar(
-            self,
-            orient=tk.HORIZONTAL,
-            mode='indeterminate',
-            variable=self.progress,
-            length=200,
-        ).grid(
-            row=rowcursor,
-            column=1,
-            sticky=tk.W,
-        )"""
         rowcursor += 1
         sflab =  tk.Label(
             self,
@@ -309,8 +295,23 @@ class Application(tk.Frame, AppConfig):
             # if wfs and sfs are folders and not same
             wfs = self.wfs_dir.get()
             sfs = self.sfs_dir.get()
+            wfsx = os.path.isdir(wfs)
+            sfsx = os.path.isdir(sfs)
+            if wfs == sfs or not wfsx or not sfsx:
+                self.active.set(0)
+                if wfs == sfs:
+                    self.action.set(
+                        'Working files and sync files are the same folder'
+                    )
+                    return
+                elif not wfsx:
+                    self.action.set('Working files folder does not exist')
+                    return
+                elif not sfsx:
+                    self.action.set('Sync files folder does not exist')
+                    return
             if wfs != sfs and os.path.isdir(wfs) and os.path.isdir(sfs):
-                self.action.set('Waiting for changes')
+                self.action.set('Watching for changes')
                 ## turn on
                 # deactivate ui elements
                 self.wfbut['state'] = tk.DISABLED
@@ -323,7 +324,6 @@ class Application(tk.Frame, AppConfig):
                 self.observer = Observer()
                 self.observer.schedule(self.stream)
                 self.observer.start()
-                # set hook to sync from working (self.do_sync)
         else:
             self.action.set('Not active')
             ## turn off
@@ -332,7 +332,6 @@ class Application(tk.Frame, AppConfig):
                 self.observer.unschedule(self.stream)
                 self.observer.stop()
                 self.observer = None
-            # wait for any dirsync to finish
             # activate ui elements
             self.wfbut['state'] = tk.NORMAL
             self.sfbut['state'] = tk.NORMAL
@@ -341,13 +340,14 @@ class Application(tk.Frame, AppConfig):
         self.write_config()
 
     def cleanup(self):
-        self.action.set('Cleaning up')
-        # sync and purge from working
-        self.do_sync(purge=True)
         print('cleanup')
+        oldaction = self.action.get()
+        self.action.set('Cleaning up')
+        # sync and purge files not in working
+        self.do_sync(purge=True, verbose=True)
+        self.action.set(oldaction)
 
     def stop_observer(self):
-        print('aaa')
         if self.observer:
             self.observer.unschedule(self.stream)
             self.observer.stop()
@@ -355,13 +355,25 @@ class Application(tk.Frame, AppConfig):
 
     def do_sync(self, *args, **options):
         print('do sync', args, options)
-        """sync(
+        oldaction = self.action.get()
+        self.action.set('Syncing')
+        logfile = os.path.join(
+            self.dirs.user_log_dir,
+            '{}.log'.format(self.__class__.__name__)
+        )
+        logging.basicConfig(filename=logfile, level=logging.DEBUG)
+        files = sync(
             self.wfs_dir.get(),
             self.sfs_dir.get(),
             'sync',
-            logger=my_logger,
+            logger=logging,
             **options
-        )"""
+        )
+        for f in files:
+            fp, fn = os.path.split(f)
+            self.action.set('Copied {}'.format(fn))
+            time.sleep(1)
+        self.action.set(oldaction)
 
 
 if __name__=='__main__':
