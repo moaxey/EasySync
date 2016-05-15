@@ -207,7 +207,7 @@ class Application(tk.Frame, AppConfig):
         )
         active = tk.Checkbutton(
             self,
-            text='Watch working and sync',
+            text='Watch working and copy to sync',
             variable=self.active,
             command=self.toggle_activate,
         ).grid(
