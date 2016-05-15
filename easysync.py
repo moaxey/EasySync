@@ -268,14 +268,15 @@ class Application(tk.Frame, AppConfig):
         )
 
     def choose_folder(self, configkey, variable):
+        ov = variable.get()
         cwd = self.config['state'][configkey]
         if cwd == '':
             cwd = os.path.expanduser('~')
-        variable.set(
-            filedialog.askdirectory(
-                initialdir=cwd
-            )
+        selected = filedialog.askdirectory(
+            initialdir=cwd
         )
+        selected = ov if selected == '' else selected
+        variable.set(selected)
         self.config['state'][configkey] = variable.get()
         self.write_config()
 
