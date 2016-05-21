@@ -87,9 +87,14 @@ class Application(tk.Frame, AppConfig):
         self.action.set('No activity')
         self.action_id = None
         self.activate_id = None
+        self.ticker_id = None
         self.observer = None
         self.stream = None
-        self.app_icon = tk.PhotoImage(file='icon/icon_1.gif')
+        self.app_icon = None
+        self.app_icons = [
+            tk.PhotoImage(file='icon/icon_{}.gif'.format(n))
+            for n in range(1,5)
+        ]
         self.create_widgets()
 
     def get_default_config(self):
@@ -107,16 +112,30 @@ class Application(tk.Frame, AppConfig):
         self.active.set(int(self.config.getboolean('state', 'active')))
         self.toggle_activate()
 
+    def tick_app_icon(self):
+        debug('tick', self.app_icons)
+        self.app_icons.insert(0, self.app_icons.pop())
+        self.app_icon.configure(image=self.app_icons[0])
+
+    def ticking(self):
+        self.tick_app_icon()
+        self.ticker_id = self.after(100, self.ticking)
+
+    def stop_ticking(self):
+        self.after_cancel(self.ticker_id)
+        self.ticker_id = None
+
     def create_widgets(self):
         headfont = font.Font(family="Avenir Next", size=54)
         messagefont = font.Font(family="Avenir Next", size=18)
         labelfont = font.Font(family="Avenir Next", size=18, weight='bold')
         helpfont = font.Font(family="Avenir Next", size=12)
         rowcursor = 1
-        app_icon = tk.Label(
+        self.app_icon = tk.Label(
             self,
-            image=self.app_icon,
-        ).grid(
+            image=self.app_icons[0],
+        )
+        self.app_icon.grid(
             row=rowcursor,
             column=0,
             sticky=tk.E,
@@ -359,7 +378,7 @@ class Application(tk.Frame, AppConfig):
             wfs = self.wfs_dir.get()
             if not self.dirs_okay():
                 if self.activate_id is None:
-                    self.activate_id = self.after(1000, self.reactivate)
+                    self.activate_id = self.after(400, self.reactivate)
                 return
             self.action.set('Watching for changes')
             self.update_idletasks()
@@ -410,6 +429,8 @@ class Application(tk.Frame, AppConfig):
             self.after_cancel(self.action_id)
         if self.activate_id is not None:
             self.after_cancel(self.activate_id)
+        if self.ticker_id is not None:
+            self.after_cancel(self.ticker_id)
         debug('quitting')
         self.quit()
 
@@ -417,8 +438,9 @@ class Application(tk.Frame, AppConfig):
         debug('do sync', args, options)
         if not self.dirs_okay():
             if self.activate_id is None:
-                self.activate_id = self.after(1000, self.reactivate)
+                self.activate_id = self.after(400, self.reactivate)
             return
+        self.ticking()
         oldaction = self.action.get()
         self.action.set('Syncing       ')
         self.update_idletasks()
@@ -434,6 +456,7 @@ class Application(tk.Frame, AppConfig):
             logger=logging,
             **options
         )
+        self.stop_ticking()
         self.display_action(
             'Copied {} files   '.format(len(files)),
             oldaction,
