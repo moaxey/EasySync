@@ -9,7 +9,9 @@ from setuptools import setup
 
 APP = ['EasySync.py']
 DATA_FILES = []
-OPTIONS = {}
+OPTIONS = {
+    'iconfile': 'icon/EasySync.icns'
+}
 #'argv_emulation': True}
 
 setup(
