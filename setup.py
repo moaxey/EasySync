@@ -7,7 +7,7 @@ Usage:
 
 from setuptools import setup
 
-APP = ['easysync.py']
+APP = ['EasySync.py']
 DATA_FILES = []
 OPTIONS = {}
 #'argv_emulation': True}
