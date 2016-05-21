@@ -336,26 +336,39 @@ class Application(tk.Frame, AppConfig):
 
     def toggle_activate(self):
         become_active = self.active.get()
+        if self.activate_id is not None and become_active:
+            # while failing to auto-activate allow user to deactivate
+            # without changing stored preferences
+            debug('cancelling timed activation')
+            self.after_cancel(self.activate_id)
+            self.activate_id = None
+            self.wfbut['state'] = tk.NORMAL
+            self.sfbut['state'] = tk.NORMAL
+            self.purgebut['state'] = tk.NORMAL
+            self.active.set(0)
+            return
         debug('toggle activate', become_active)
+        self.tick_app_icon()
         if become_active:
+            ## turn on
+            self.wfbut['state'] = tk.DISABLED
+            self.sfbut['state'] = tk.DISABLED
+            self.purgebut['state'] = tk.DISABLED
             self.action.set('Looking for directories')
             self.update_idletasks()
             wfs = self.wfs_dir.get()
             if not self.dirs_okay():
                 if self.activate_id is None:
-                    self.activate_id = self.after(2000, self.reactivate)
+                    self.activate_id = self.after(1000, self.reactivate)
                 return
             self.action.set('Watching for changes')
             self.update_idletasks()
-            ## turn on
-            self.wfbut['state'] = tk.DISABLED
-            self.sfbut['state'] = tk.DISABLED
-            self.purgebut['state'] = tk.DISABLED
             self.do_sync()
-            self.stream = Stream(self.do_sync, wfs)
-            self.observer = Observer()
-            self.observer.schedule(self.stream)
-            self.observer.start()
+            if self.observer is None:
+                self.stream = Stream(self.do_sync, wfs)
+                self.observer = Observer()
+                self.observer.schedule(self.stream)
+                self.observer.start()
         else:
             self.action.set('Not active')
             self.update_idletasks()
@@ -404,7 +417,7 @@ class Application(tk.Frame, AppConfig):
         debug('do sync', args, options)
         if not self.dirs_okay():
             if self.activate_id is None:
-                self.activate_id = self.after(2000, self.reactivate)
+                self.activate_id = self.after(1000, self.reactivate)
             return
         oldaction = self.action.get()
         self.action.set('Syncing       ')
