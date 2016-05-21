@@ -8,7 +8,7 @@ Usage:
 from setuptools import setup
 
 APP = ['EasySync.py']
-DATA_FILES = []
+DATA_FILES = [('', ['icon'])]
 OPTIONS = {
     'iconfile': 'icon/EasySync.icns'
 }

@@ -89,6 +89,7 @@ class Application(tk.Frame, AppConfig):
         self.activate_id = None
         self.observer = None
         self.stream = None
+        self.app_icon = tk.PhotoImage(file='icon/icon_1.gif')
         self.create_widgets()
 
     def get_default_config(self):
@@ -107,19 +108,29 @@ class Application(tk.Frame, AppConfig):
         self.toggle_activate()
 
     def create_widgets(self):
-        headfont = font.Font(family="Avenir Next", size=48, weight='bold')
+        headfont = font.Font(family="Avenir Next", size=54)
         messagefont = font.Font(family="Avenir Next", size=18)
         labelfont = font.Font(family="Avenir Next", size=18, weight='bold')
         helpfont = font.Font(family="Avenir Next", size=12)
         rowcursor = 1
+        app_icon = tk.Label(
+            self,
+            image=self.app_icon,
+        ).grid(
+            row=rowcursor,
+            column=0,
+            sticky=tk.E,
+        )
         heading = tk.Label(
             self,
             text="EasySync",
             font=headfont,
-            justify=tk.CENTER,
+            justify=tk.LEFT,
         ).grid(
             row=rowcursor,
-            columnspan=3,
+            column=1,
+            columnspan=2,
+            sticky=tk.W,
         )
         rowcursor += 1
         description = tk.Label(
