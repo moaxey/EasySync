@@ -118,12 +118,15 @@ class Application(tk.Frame, AppConfig):
         self.app_icon.configure(image=self.app_icons[0])
 
     def ticking(self):
+        # prevent ticking loops if it is triggered multiple times in succession
+        self.stop_ticking()
         self.tick_app_icon()
         self.ticker_id = self.after(100, self.ticking)
 
     def stop_ticking(self):
-        self.after_cancel(self.ticker_id)
-        self.ticker_id = None
+        if self.ticker_id is not None:
+            self.after_cancel(self.ticker_id)
+            self.ticker_id = None
 
     def create_widgets(self):
         headfont = font.Font(family="Avenir Next", size=54)
