@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from tkinter import font, ttk, filedialog
+from tkinter import font, ttk, filedialog, messagebox
 import tkinter as tk
 from appdirs import AppDirs
 import configparser
@@ -76,8 +76,14 @@ class Application(tk.Frame, AppConfig):
         top = self.winfo_toplevel()
         top.protocol("WM_DELETE_WINDOW", self.stop_observer)
         top.createcommand("tk::mac::Quit", self.stop_observer)
-        self.menuBar = tk.Menu(top)
-        top['menu'] = self.menuBar
+        menubar = tk.Menu(top)
+        appmenu = tk.Menu(menubar, name='apple')
+        menubar.add_cascade(menu=appmenu)
+        appmenu.add_command(
+            label='About EasySync', command=self.showinfo
+        )
+        appmenu.add_separator()
+        top['menu'] = menubar
         self.grid(padx=12, pady=12)
         self.wfs_dir = tk.StringVar()
         self.sfs_dir = tk.StringVar()
@@ -97,6 +103,15 @@ class Application(tk.Frame, AppConfig):
             for n in range(1,5)
         ]
         self.create_widgets()
+
+    def showinfo(self):
+        pth, fn = os.path.split(os.path.abspath(__file__))
+        with open(os.path.join(pth, 'README.md'), 'r') as f:
+            content = f.read()
+        messagebox.showinfo(
+            title='About EasySync',
+            message=content
+        )
 
     def get_default_config(self):
         return {

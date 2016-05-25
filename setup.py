@@ -16,7 +16,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 
 APP = ['EasySync.py']
-DATA_FILES = [('', ['icon'])]
+DATA_FILES = [('', ['icon']),('', ['README.md'])]
 OPTIONS = {
     'iconfile': 'icon/EasySync.icns'
 }
