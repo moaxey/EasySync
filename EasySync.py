@@ -83,11 +83,12 @@ class Application(tk.Frame, AppConfig):
         self.sfs_dir = tk.StringVar()
         self.active = tk.IntVar()
         self.progress = tk.IntVar()
+        self.actions = []
         self.action = tk.StringVar()
-        self.action.set('No activity')
         self.action_id = None
         self.activate_id = None
         self.ticker_id = None
+        self.next_status_id = None
         self.observer = None
         self.stream = None
         self.app_icon = None
@@ -113,7 +114,7 @@ class Application(tk.Frame, AppConfig):
         self.toggle_activate()
 
     def tick_app_icon(self):
-        debug('tick', self.app_icons)
+        debug('tick') #, self.app_icons)
         self.app_icons.insert(0, self.app_icons.pop())
         self.app_icon.configure(image=self.app_icons[0])
 
@@ -376,14 +377,14 @@ class Application(tk.Frame, AppConfig):
             self.wfbut['state'] = tk.DISABLED
             self.sfbut['state'] = tk.DISABLED
             self.purgebut['state'] = tk.DISABLED
-            self.action.set('Looking for directories')
+            self.queue_status('Looking for directories')
             self.update_idletasks()
             wfs = self.wfs_dir.get()
             if not self.dirs_okay():
                 if self.activate_id is None:
                     self.activate_id = self.after(400, self.reactivate)
                 return
-            self.action.set('Watching for changes')
+            # self.action.set('Watching for changes')
             self.update_idletasks()
             self.do_sync()
             if self.observer is None:
@@ -407,19 +408,12 @@ class Application(tk.Frame, AppConfig):
 
     def cleanup(self):
         debug('cleanup')
-        oldaction = self.action.get()
-        now = time.time()
         thisaction = 'Cleaning up'
         self.action.set(thisaction)
         self.update_idletasks()
         # sync and purge files not in working
         self.do_sync(purge=True, verbose=True)
-        dur = time.time() - now
-        self.display_action(
-            thisaction,
-            oldaction,
-            int(5000 - dur * 1000)
-        )
+        self.queue_status(thisaction)
 
     def stop_observer(self):
         debug('stop observer')
@@ -468,19 +462,31 @@ class Application(tk.Frame, AppConfig):
             **options
         )
         self.stop_ticking()
-        self.display_action(
-            'Copied {} files   '.format(len(files)),
-            oldaction,
-        )
+        self.queue_status('Copied {} files'.format(len(files)))
 
+    def watching_status(self):
+        # have a proper test here for thread alive
+        if self.observer is None:
+            self.action.set('Not active')
+        else:
+            self.action.set('Watching for changes')
+        self.update_idletasks()
+        self.next_status_id = None
 
-    def display_action(self, action, oldaction, duration=3000):
+    def next_status(self):
+        action, duration = self.actions.pop(0)
         self.action.set(action)
         self.update_idletasks()
-        id = self.after(duration, self.action.set, oldaction)
-        if self.action_id is not None:
-            self.after_cancel(self.action_id)
-        self.action_id = id
+        if len(self.actions) > 0:
+            self.next_status_id = self.after(duration, self.next_status)
+        else:
+            self.next_status_id = self.after(duration, self.watching_status)
+
+    def queue_status(self, action, duration=2000):
+        # add to queue and call next_status
+        self.actions.append((action, duration))
+        if self.next_status_id is None:
+            self.next_status()
 
 
 if __name__=='__main__':
