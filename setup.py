@@ -24,8 +24,8 @@ OPTIONS = {
 
 setup(
     name='EasySync',
-    version='0.2-beta',
-    description='A simple and safe utility to synchronise a copy of working files',
+    version='0.2',
+    description='A simple and relatively safe OSX app  to synchronise a copy of your working files',
     long_description=long_description,
     url='https://github.com/moaxey/EasySync',
     license='MIT',
