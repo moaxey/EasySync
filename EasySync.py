@@ -329,6 +329,9 @@ class Application(tk.Frame, AppConfig):
         debug('Choose sync')
         self.choose_folder('sfs_dir', self.sfs_dir)
 
+    def pad(self, string):
+        return '{0: <43}'.format(string)
+
     def dirs_okay(self):
         # combined with reactivate, this allows sync to pause and continue if
         # either directory is absent (e.g. unmounted)
@@ -340,13 +343,17 @@ class Application(tk.Frame, AppConfig):
             self.active.set(0)
             if wfs == sfs:
                 self.action.set(
-                    'Working files and sync files are the same folder'
+                    self.pad('Working and sync files are the same folder')
                 )
             elif not wfsx or not sfsx:
                 if not wfsx:
-                    self.action.set('Working files folder does not exist')
+                    self.action.set(
+                        self.pad('Working files folder does not exist')
+                    )
                 elif not sfsx:
-                    self.action.set('Sync files folder does not exist')
+                    self.action.set(
+                        self.pad('Sync files folder does not exist')
+                    )
             self.update_idletasks()
             return False
         else:
@@ -384,7 +391,6 @@ class Application(tk.Frame, AppConfig):
                 if self.activate_id is None:
                     self.activate_id = self.after(400, self.reactivate)
                 return
-            # self.action.set('Watching for changes')
             self.update_idletasks()
             self.do_sync()
             if self.observer is None:
@@ -393,7 +399,7 @@ class Application(tk.Frame, AppConfig):
                 self.observer.schedule(self.stream)
                 self.observer.start()
         else:
-            self.action.set('Not active')
+            self.action.set(self.pad('Not active'))
             self.update_idletasks()
             ## turn off
             if self.observer:
@@ -409,7 +415,7 @@ class Application(tk.Frame, AppConfig):
     def cleanup(self):
         debug('cleanup')
         thisaction = 'Cleaning up'
-        self.action.set(thisaction)
+        self.action.set(self.pad(thisaction))
         self.update_idletasks()
         # sync and purge files not in working
         self.do_sync(purge=True, verbose=True)
@@ -447,7 +453,7 @@ class Application(tk.Frame, AppConfig):
                 ".+/.+~$",
             ]
         self.ticking()
-        self.action.set('Syncing')
+        self.action.set(self.pad('Syncing'))
         self.update_idletasks()
         logfile = os.path.join(
             self.dirs.user_log_dir,
@@ -467,15 +473,15 @@ class Application(tk.Frame, AppConfig):
     def watching_status(self):
         # have a proper test here for thread alive
         if self.observer is None:
-            self.action.set('Not active')
+            self.action.set(self.pad('Not active'))
         else:
-            self.action.set('Watching for changes')
+            self.action.set(self.pad('Watching for changes'))
         self.update_idletasks()
         self.next_status_id = None
 
     def next_status(self):
         action, duration = self.actions.pop(0)
-        self.action.set(action)
+        self.action.set(self.pad(action))
         self.update_idletasks()
         if len(self.actions) > 0:
             self.next_status_id = self.after(duration, self.next_status)
