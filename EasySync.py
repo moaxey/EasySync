@@ -443,9 +443,17 @@ class Application(tk.Frame, AppConfig):
             if self.activate_id is None:
                 self.activate_id = self.after(400, self.reactivate)
             return
+        if 'exclude' not in options.keys():
+            # exclude hidden files, lock files, backup files
+            options['exclude'] = [
+                ".*\.DS_Store",
+                ".+/\.[\w \.]+$",
+                ".+/~.+\.idlk$",
+                ".+/#.+$",
+                ".+/.+~$",
+            ]
         self.ticking()
-        oldaction = self.action.get()
-        self.action.set('Syncing       ')
+        self.action.set('Syncing')
         self.update_idletasks()
         logfile = os.path.join(
             self.dirs.user_log_dir,
