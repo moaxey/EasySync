@@ -12,3 +12,4 @@ It is designed with an emphasis on safety and convenience.
 
 - The app saves its state for each user, so adding it to your login items will provide automatic continuity when you log in again.
 
+- Hidden files (prefixed with .), backup files (suffixed with ~) and temporary files (starting with #) are not copied
